@@ -12,6 +12,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "air"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "field",
+ "koala-bear",
+ "poly",
+]
+
+[[package]]
 name = "alloy-primitives"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -36,7 +46,7 @@ dependencies = [
  "rustc-hash",
  "secp256k1",
  "serde",
- "sha3 0.11.0",
+ "sha3",
 ]
 
 [[package]]
@@ -338,19 +348,18 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 [[package]]
 name = "backend"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
- "mt-air",
- "mt-fiat-shamir",
- "mt-field",
- "mt-koala-bear",
- "mt-poly",
- "mt-sumcheck",
- "mt-symetric",
- "mt-utils",
- "mt-whir",
+ "air",
+ "fiat-shamir",
+ "field",
+ "koala-bear",
  "parallel",
- "tracing",
+ "poly",
+ "sumcheck",
+ "symetric",
+ "utils",
+ "whir",
  "zk-alloc",
 ]
 
@@ -507,6 +516,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ddb117e43bbf7dacf0a4190fef4d345b9bad68dfc649cb349e7d17d28428e51"
 dependencies = [
  "clap_builder",
+ "clap_derive",
 ]
 
 [[package]]
@@ -519,6 +529,18 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
+]
+
+[[package]]
+name = "clap_derive"
+version = "4.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2ce8604710f6733aa641a2b3731eaa1e8b3d9973d5e3565da11800813f997a9"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -559,12 +581,6 @@ name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
-
-[[package]]
-name = "const-oid"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 
 [[package]]
 name = "const_format"
@@ -621,31 +637,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
-name = "crossbeam-deque"
-version = "0.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dd111b7b7f7d55b72c0a6ae361660ee5853c9af73f70c3c2ef6858b950e2e51"
-dependencies = [
- "crossbeam-epoch",
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-epoch"
-version = "0.9.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
-dependencies = [
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.8.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
-
-[[package]]
 name = "crunchy"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -683,26 +674,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "dashmap"
-version = "6.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6361d5c062261c78a176addb82d4c821ae42bed6089de0e12603cd25de2059c"
-dependencies = [
- "cfg-if",
- "crossbeam-utils",
- "hashbrown 0.14.5",
- "lock_api",
- "once_cell",
- "parking_lot_core",
-]
-
-[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
 dependencies = [
- "const-oid 0.9.6",
+ "const-oid",
  "zeroize",
 ]
 
@@ -756,7 +733,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
- "const-oid 0.9.6",
+ "const-oid",
  "crypto-common 0.1.7",
  "subtle",
 ]
@@ -768,7 +745,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
  "block-buffer 0.12.0",
- "const-oid 0.10.2",
  "crypto-common 0.2.2",
 ]
 
@@ -938,6 +914,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "fiat-shamir"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "field",
+ "koala-bear",
+ "parallel",
+ "serde",
+ "symetric",
+ "utils",
+]
+
+[[package]]
+name = "field"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "paste",
+ "rand 0.10.1",
+ "serde",
+ "utils",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1049,12 +1049,6 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.14.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
-
-[[package]]
-name = "hashbrown"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
@@ -1083,7 +1077,7 @@ dependencies = [
  "hash32",
  "rustc_version 0.4.1",
  "serde",
- "spin 0.9.8",
+ "spin",
  "stable_deref_trait",
 ]
 
@@ -1243,15 +1237,6 @@ dependencies = [
 
 [[package]]
 name = "keccak"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb26cec98cce3a3d96cbb7bced3c4b16e3d13f27ec56dbd62cbc8f39cfb9d653"
-dependencies = [
- "cpufeatures 0.2.17",
-]
-
-[[package]]
-name = "keccak"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e24a010dd405bd7ed803e5253182815b41bf2e6a80cc3bfc066658e03a198aa"
@@ -1268,6 +1253,18 @@ checksum = "1766b89733097006f3a1388a02849865d6bc98c89273cb622e29fdd209922183"
 dependencies = [
  "digest 0.10.7",
  "sha3-asm",
+]
+
+[[package]]
+name = "koala-bear"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "field",
+ "paste",
+ "rand 0.10.1",
+ "serde",
+ "utils",
 ]
 
 [[package]]
@@ -1292,119 +1289,69 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
+name = "lean-multisig"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "backend",
+ "clap",
+ "lean_vm",
+ "rec_aggregation",
+ "serde_json",
+ "sub_protocols",
+ "system-info",
+ "xmss",
+ "zk-alloc",
+]
+
+[[package]]
 name = "lean_compiler"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
  "backend",
  "include_dir",
  "lean_vm",
  "pest",
  "pest_derive",
- "rand 0.10.1",
  "sub_protocols",
- "tracing",
- "utils",
+ "xmss",
 ]
 
 [[package]]
 name = "lean_prover"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
  "backend",
- "itertools 0.14.0",
  "lean_compiler",
  "lean_vm",
- "pest",
- "pest_derive",
  "rand 0.10.1",
  "serde",
  "sub_protocols",
  "tracing",
- "utils",
+ "xmss",
 ]
 
 [[package]]
 name = "lean_vm"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
  "backend",
- "itertools 0.14.0",
- "leansig_wrapper",
- "pest",
- "pest_derive",
- "rand 0.10.1",
- "serde",
  "tracing",
- "utils",
-]
-
-[[package]]
-name = "leansig"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanSig?branch=devnet4#15cbdd43ec8525aa43fea2f42cafc5ed366084ae"
-dependencies = [
- "dashmap",
- "ethereum_ssz",
- "num-bigint",
- "num-traits",
- "p3-baby-bear",
- "p3-field",
- "p3-koala-bear",
- "p3-symmetric",
- "rand 0.10.1",
- "rayon",
- "serde",
- "sha3 0.10.9",
- "thiserror",
-]
-
-[[package]]
-name = "leansig_fast_keygen"
-version = "0.1.0"
-source = "git+https://github.com/TomWambsgans/leanSig?branch=devnet4-fast-keygen#0fa9e19b8946ef50a34f3d50d82918b98bcfa4a5"
-dependencies = [
- "dashmap",
- "ethereum_ssz",
- "num-bigint",
- "num-traits",
- "p3-baby-bear",
- "p3-field",
- "p3-koala-bear",
- "p3-symmetric",
- "rand 0.10.1",
- "rayon",
- "serde",
- "sha3 0.10.9",
- "thiserror",
-]
-
-[[package]]
-name = "leansig_wrapper"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "backend",
- "ethereum_ssz",
- "leansig",
- "leansig_fast_keygen",
- "p3-field",
- "rand 0.10.1",
+ "xmss",
 ]
 
 [[package]]
 name = "leanvm-xmss-c"
 version = "0.1.0"
 dependencies = [
- "backend",
  "cbindgen",
  "ethereum_ssz",
- "leansig",
- "leansig_wrapper",
+ "lean-multisig",
+ "postcard",
  "rand 0.10.1",
- "rec_aggregation",
  "serde",
  "serde_json",
  "tikv-jemallocator",
@@ -1450,15 +1397,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "616ec5685824bcc94416c6d4a7a446eea774a31efd7062c8480ba6fd06d7a6e5"
 
 [[package]]
-name = "lz4_flex"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ef0d4ed8669f8f8826eb00dc878084aa8f253506c4fd5e8f58f5bce72ddb97e"
-dependencies = [
- "twox-hash",
-]
-
-[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1472,127 +1410,6 @@ name = "memchr"
 version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
-
-[[package]]
-name = "mt-air"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "mt-field",
- "mt-poly",
-]
-
-[[package]]
-name = "mt-fiat-shamir"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "mt-field",
- "mt-koala-bear",
- "mt-symetric",
- "mt-utils",
- "parallel",
- "serde",
- "tracing",
-]
-
-[[package]]
-name = "mt-field"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "itertools 0.14.0",
- "mt-utils",
- "num-bigint",
- "parallel",
- "paste",
- "rand 0.10.1",
- "serde",
- "tracing",
-]
-
-[[package]]
-name = "mt-koala-bear"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "itertools 0.14.0",
- "mt-field",
- "mt-utils",
- "num-bigint",
- "paste",
- "rand 0.10.1",
- "serde",
- "tracing",
-]
-
-[[package]]
-name = "mt-poly"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "itertools 0.14.0",
- "mt-field",
- "mt-utils",
- "parallel",
- "rand 0.10.1",
- "serde",
- "system-info",
- "zk-alloc",
-]
-
-[[package]]
-name = "mt-sumcheck"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "mt-air",
- "mt-fiat-shamir",
- "mt-field",
- "mt-poly",
- "parallel",
- "tracing",
- "zk-alloc",
-]
-
-[[package]]
-name = "mt-symetric"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "mt-field",
- "mt-koala-bear",
- "parallel",
- "zk-alloc",
-]
-
-[[package]]
-name = "mt-utils"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "mt-whir"
-version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
-dependencies = [
- "itertools 0.14.0",
- "mt-fiat-shamir",
- "mt-field",
- "mt-koala-bear",
- "mt-poly",
- "mt-sumcheck",
- "mt-symetric",
- "mt-utils",
- "parallel",
- "rand 0.10.1",
- "system-info",
- "tracing",
- "zk-alloc",
-]
 
 [[package]]
 name = "nu-ansi-term"
@@ -1670,177 +1487,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
-name = "p3-baby-bear"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "p3-challenger",
- "p3-field",
- "p3-mds",
- "p3-monty-31",
- "p3-poseidon1",
- "p3-poseidon2",
- "p3-symmetric",
- "rand 0.10.1",
-]
-
-[[package]]
-name = "p3-challenger"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "p3-field",
- "p3-maybe-rayon",
- "p3-monty-31",
- "p3-symmetric",
- "p3-util",
- "tracing",
-]
-
-[[package]]
-name = "p3-dft"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "itertools 0.14.0",
- "p3-field",
- "p3-matrix",
- "p3-maybe-rayon",
- "p3-util",
- "spin 0.10.0",
- "tracing",
-]
-
-[[package]]
-name = "p3-field"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "itertools 0.14.0",
- "num-bigint",
- "p3-maybe-rayon",
- "p3-util",
- "paste",
- "rand 0.10.1",
- "serde",
- "tracing",
-]
-
-[[package]]
-name = "p3-koala-bear"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "p3-challenger",
- "p3-field",
- "p3-mds",
- "p3-monty-31",
- "p3-poseidon1",
- "p3-poseidon2",
- "p3-symmetric",
- "rand 0.10.1",
-]
-
-[[package]]
-name = "p3-matrix"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "itertools 0.14.0",
- "p3-field",
- "p3-maybe-rayon",
- "p3-util",
- "rand 0.10.1",
- "serde",
- "tracing",
-]
-
-[[package]]
-name = "p3-maybe-rayon"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-
-[[package]]
-name = "p3-mds"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "p3-dft",
- "p3-field",
- "p3-symmetric",
- "p3-util",
- "rand 0.10.1",
-]
-
-[[package]]
-name = "p3-monty-31"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "itertools 0.14.0",
- "num-bigint",
- "p3-dft",
- "p3-field",
- "p3-matrix",
- "p3-maybe-rayon",
- "p3-mds",
- "p3-poseidon1",
- "p3-poseidon2",
- "p3-symmetric",
- "p3-util",
- "paste",
- "rand 0.10.1",
- "serde",
- "spin 0.10.0",
- "tracing",
-]
-
-[[package]]
-name = "p3-poseidon1"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "p3-field",
- "p3-symmetric",
- "rand 0.10.1",
-]
-
-[[package]]
-name = "p3-poseidon2"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "p3-field",
- "p3-mds",
- "p3-symmetric",
- "p3-util",
- "rand 0.10.1",
-]
-
-[[package]]
-name = "p3-symmetric"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "itertools 0.14.0",
- "p3-field",
- "p3-util",
- "serde",
-]
-
-[[package]]
-name = "p3-util"
-version = "0.5.1"
-source = "git+https://github.com/Plonky3/Plonky3.git#3f67d136c71bec40f180c85d0bb2b654acddef22"
-dependencies = [
- "serde",
- "transpose",
-]
-
-[[package]]
 name = "parallel"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
  "system-info",
 ]
@@ -1871,19 +1520,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.9.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2621685985a2ebf1c516881c026032ac7deafcda1a2c9b7850dc81e3dfcb64c1"
-dependencies = [
- "cfg-if",
- "libc",
- "redox_syscall",
- "smallvec",
- "windows-link",
 ]
 
 [[package]]
@@ -1949,6 +1585,21 @@ checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
 dependencies = [
  "der",
  "spki",
+]
+
+[[package]]
+name = "poly"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "field",
+ "koala-bear",
+ "parallel",
+ "rand 0.10.1",
+ "serde",
+ "system-info",
+ "utils",
+ "zk-alloc",
 ]
 
 [[package]]
@@ -2161,56 +1812,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "rayon"
-version = "1.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb39b166781f92d482534ef4b4b1b2568f42613b53e5b6c160e24cfbfa30926d"
-dependencies = [
- "either",
- "rayon-core",
-]
-
-[[package]]
-name = "rayon-core"
-version = "1.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
-dependencies = [
- "crossbeam-deque",
- "crossbeam-utils",
-]
-
-[[package]]
 name = "rec_aggregation"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
  "backend",
  "include_dir",
  "lean_compiler",
  "lean_prover",
  "lean_vm",
- "leansig_wrapper",
- "lz4_flex",
  "objc2",
  "objc2-foundation",
+ "parallel",
  "postcard",
- "rand 0.10.1",
  "serde",
- "sha3 0.11.0",
  "sub_protocols",
  "tracing",
- "utils",
- "zk-alloc",
-]
-
-[[package]]
-name = "redox_syscall"
-version = "0.5.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
-dependencies = [
- "bitflags",
+ "xmss",
 ]
 
 [[package]]
@@ -2474,22 +2092,12 @@ dependencies = [
 
 [[package]]
 name = "sha3"
-version = "0.10.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77fd7028345d415a4034cf8777cd4f8ab1851274233b45f84e3d955502d93874"
-dependencies = [
- "digest 0.10.7",
- "keccak 0.1.6",
-]
-
-[[package]]
-name = "sha3"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be176f1a57ce4e3d31c1a166222d9768de5954f811601fb7ca06fc8203905ce1"
 dependencies = [
  "digest 0.11.3",
- "keccak 0.2.0",
+ "keccak",
 ]
 
 [[package]]
@@ -2543,15 +2151,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
-dependencies = [
- "lock_api",
-]
-
-[[package]]
 name = "spki"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2574,12 +2173,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "strength_reduce"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe895eb47f22e2ddd4dabc02bce419d2e643c8e3b585c78158b349195bc24d82"
-
-[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2588,12 +2181,11 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 [[package]]
 name = "sub_protocols"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
  "backend",
  "lean_vm",
  "tracing",
- "utils",
 ]
 
 [[package]]
@@ -2601,6 +2193,32 @@ name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+
+[[package]]
+name = "sumcheck"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "air",
+ "fiat-shamir",
+ "field",
+ "koala-bear",
+ "parallel",
+ "poly",
+ "tracing",
+ "zk-alloc",
+]
+
+[[package]]
+name = "symetric"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "field",
+ "koala-bear",
+ "parallel",
+ "zk-alloc",
+]
 
 [[package]]
 name = "syn"
@@ -2627,7 +2245,7 @@ dependencies = [
 [[package]]
 name = "system-info"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
  "libc",
 ]
@@ -2846,22 +2464,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "transpose"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ad61aed86bc3faea4300c7aee358b4c6d0c8d6ccc36524c96e4c92ccf26e77e"
-dependencies = [
- "num-integer",
- "strength_reduce",
-]
-
-[[package]]
-name = "twox-hash"
-version = "2.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ea3136b675547379c4bd395ca6b938e5ad3c3d20fad76e7fe85f9e0d011419c"
-
-[[package]]
 name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2918,10 +2520,10 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "utils"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
- "backend",
- "tracing",
+ "parallel",
+ "serde",
  "tracing-forest",
  "tracing-subscriber",
 ]
@@ -3003,6 +2605,25 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap",
  "semver 1.0.28",
+]
+
+[[package]]
+name = "whir"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "fiat-shamir",
+ "field",
+ "koala-bear",
+ "parallel",
+ "poly",
+ "rand 0.10.1",
+ "sumcheck",
+ "symetric",
+ "system-info",
+ "tracing",
+ "utils",
+ "zk-alloc",
 ]
 
 [[package]]
@@ -3164,6 +2785,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "xmss"
+version = "0.1.0"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
+dependencies = [
+ "backend",
+ "ethereum_ssz",
+ "postcard",
+ "rand 0.10.1",
+ "serde",
+]
+
+[[package]]
 name = "zerocopy"
 version = "0.8.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3206,7 +2839,7 @@ dependencies = [
 [[package]]
 name = "zk-alloc"
 version = "0.1.0"
-source = "git+https://github.com/leanEthereum/leanVM?rev=e2592df4e30fdddbbf8ae26a333116c68cec7026#e2592df4e30fdddbbf8ae26a333116c68cec7026"
+source = "git+https://github.com/leanEthereum/leanVM?rev=380da82c330eac2841252a655a86ea48ec173bb6#380da82c330eac2841252a655a86ea48ec173bb6"
 dependencies = [
  "libc",
  "parallel",

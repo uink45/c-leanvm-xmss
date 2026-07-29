@@ -5,7 +5,8 @@ C bindings for leanVM/leanMultisig XMSS signatures and aggregation.
 ## Scope
 
 - XMSS key generation, signing, verification
-- SSZ serialization/deserialization for keys and signatures
+- SSZ serialization/deserialization for public keys and signatures
+- Postcard serialization/deserialization for secret keys
 - LeanVM aggregation setup, raw aggregation, recursive aggregation, and verification
 
 The API mirrors `c-hash-sig` where possible to keep integration minimal.
@@ -23,21 +24,16 @@ Outputs:
 
 A compatibility header is provided at `include/pq-bindings-c-rust.h`.
 
-## Devnet4 Notes
+## leanVM Main Notes
 
-- XMSS public keys remain 52 bytes.
-- Devnet4 XMSS signatures are 2536 bytes in canonical SSZ form.
-- `pq_signature_deserialize` and `pq_verify_ssz` also accept legacy 3112-byte buffers
-  when the trailing bytes are zero, which helps with staged downstream migrations.
+- XMSS public keys are 32 bytes.
+- XMSS signatures are 1208 bytes in canonical SSZ form.
+- `pq_signature_deserialize` and `pq_verify_ssz` accept zero-padded signature buffers.
 
 ## Aggregated Proof Encoding
 
-`pq_aggregate_signatures` and `pq_aggregate_signatures_recursive` return the upstream
-devnet4 `AggregatedXMSS` byte format from `leanMultisig`.
-
-That format is:
-- postcard serialization of the `AggregatedXMSS` Rust struct
-- wrapped in `lz4_flex::compress_prepend_size`
+`pq_aggregate_signatures` and `pq_aggregate_signatures_recursive` return leanVM
+main's postcard encoding without public keys.
 
 `pq_verify_aggregated_signatures` expects this exact encoding.
 

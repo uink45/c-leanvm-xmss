@@ -5,17 +5,14 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::slice;
 use std::sync::Mutex;
 
-use backend::{precompute_dft_twiddles, KoalaBear};
-use leansig::signature::{SignatureScheme, SignatureSchemeSecretKey, SigningError};
-use leansig_wrapper::{LeanSigScheme, XmssPublicKey, XmssSecretKey, XmssSignature, MESSAGE_LENGTH};
-use rec_aggregation::{
-    aggregate_single_message_signatures as aggregate_type_1, init_aggregation_bytecode,
-    merge_single_message_aggregates as merge_many_type_1,
-    split_multi_message_aggregate_by_message as split_type_2_by_msg,
-    verify_multi_message_aggregate as verify_type_2,
-    verify_single_message_aggregate as verify_type_1,
+use lean_multisig::{
+    aggregate_single_message_signatures as aggregate_type_1,
+    merge_single_message_aggregates as merge_many_type_1, setup_prover, setup_verifier,
+    split_multi_message_aggregate, verify_multi_message_aggregate as verify_type_2,
+    verify_single_message_aggregate as verify_type_1, xmss_key_gen, xmss_sign, xmss_verify,
     MultiMessageAggregateSignature as TypeTwoMultiSignature,
-    SingleMessageAggregateSignature as TypeOneMultiSignature,
+    SingleMessageAggregateSignature as TypeOneMultiSignature, XmssPublicKey, XmssSecretKey,
+    XmssSignature, XmssSignatureError, MESSAGE_LEN_BYTES as MESSAGE_LENGTH,
 };
 use ssz::{Decode, Encode};
 
@@ -23,16 +20,13 @@ use ssz::{Decode, Encode};
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
-pub const PUBLIC_KEY_SIZE: usize = 52;
-#[cfg(feature = "test-config")]
-const ACTIVE_SIGNATURE_SIZE: usize = 424;
-#[cfg(not(feature = "test-config"))]
-const ACTIVE_SIGNATURE_SIZE: usize = 2536;
-const SIGNATURE_SIZE: usize = ACTIVE_SIGNATURE_SIZE;
+pub const PUBLIC_KEY_SIZE: usize = 32;
+pub const SIGNATURE_SIZE: usize = 1208;
+const _: () = assert!(PUBLIC_KEY_SIZE == lean_multisig::PUB_KEY_SSZ_LEN);
+const _: () = assert!(SIGNATURE_SIZE == lean_multisig::SIGNATURE_SSZ_LEN);
 
 #[cfg(test)]
 const DEFAULT_LOG_INV_RATE: usize = 2;
-const LEGACY_SIGNATURE_SIZE: usize = 3112;
 
 type PublicKeyType = XmssPublicKey;
 type SecretKeyType = XmssSecretKey;
@@ -104,11 +98,11 @@ pub struct PQRange {
     pub end: u64,
 }
 
-impl From<std::ops::Range<u64>> for PQRange {
-    fn from(range: std::ops::Range<u64>) -> Self {
+impl From<std::ops::RangeInclusive<u32>> for PQRange {
+    fn from(range: std::ops::RangeInclusive<u32>) -> Self {
         Self {
-            start: range.start,
-            end: range.end,
+            start: u64::from(*range.start()),
+            end: u64::from(*range.end()) + 1,
         }
     }
 }
@@ -150,7 +144,7 @@ fn normalize_signature_bytes(bytes: &[u8]) -> Result<&[u8], PQSigningError> {
         return Ok(bytes);
     }
 
-    if bytes.len() == LEGACY_SIGNATURE_SIZE {
+    if bytes.len() > SIGNATURE_SIZE {
         let (signature_bytes, trailing_padding) = bytes.split_at(SIGNATURE_SIZE);
         if trailing_padding.iter().all(|byte| *byte == 0) {
             return Ok(signature_bytes);
@@ -194,16 +188,7 @@ fn run_proving_phase_then<T, E, R>(
     let _guard = PROVING_PHASE_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        backend::begin_phase();
-        let result = f();
-        backend::end_phase();
-        result.map(after)
-    }));
-    if result.is_err() {
-        let _ = catch_unwind(AssertUnwindSafe(backend::end_phase));
-    }
-    result.map_err(|_| ())
+    catch_unwind(AssertUnwindSafe(|| f().map(after))).map_err(|_| ())
 }
 
 unsafe fn write_bytes_to_buffer(
@@ -306,7 +291,7 @@ fn collect_raw_xmss_inputs(
         let public_key = (*public_key.inner).clone();
         let signature = (*signature.inner).clone();
 
-        if verify_inputs && !LeanSigScheme::verify(&public_key, epoch, message, &signature) {
+        if verify_inputs && xmss_verify(&public_key, epoch, message, &signature).is_err() {
             return Err(PQSigningError::UnknownError);
         }
 
@@ -337,7 +322,7 @@ fn collect_child_aggregations(
 
         let pubkeys = collect_public_keys(child.pubkeys, child.pubkey_count)?;
         let proof_bytes = unsafe { slice::from_raw_parts(child.agg_bytes, child.agg_len) };
-        let aggregated = TypeOneMultiSignature::decompress_without_pubkeys(proof_bytes, pubkeys)
+        let aggregated = TypeOneMultiSignature::from_bytes_without_pubkeys(proof_bytes, pubkeys)
             .ok_or(PQSigningError::UnknownError)?;
         out.push(aggregated);
     }
@@ -407,7 +392,7 @@ fn collect_type1_entries(
         }
         let pubkeys = collect_public_keys(entry.pubkeys, entry.pubkey_count)?;
         let sig_bytes = unsafe { slice::from_raw_parts(entry.agg_bytes, entry.agg_len) };
-        let type1 = TypeOneMultiSignature::decompress_without_pubkeys(sig_bytes, pubkeys)
+        let type1 = TypeOneMultiSignature::from_bytes_without_pubkeys(sig_bytes, pubkeys)
             .ok_or(PQSigningError::UnknownError)?;
         out.push(type1);
     }
@@ -474,7 +459,7 @@ unsafe fn aggregate_signatures_impl(
                 log_inv_rate,
             )
         },
-        |aggregated| aggregated.compress_without_pubkeys(),
+        |aggregated| aggregated.to_bytes_without_pubkeys(),
     ) {
         Ok(Ok(aggregated_bytes)) => aggregated_bytes,
         Ok(Err(err)) => return aggregation_error("aggregate_type_1", err),
@@ -529,7 +514,7 @@ pub unsafe extern "C" fn pq_get_activation_interval(
     }
 
     let key = &*(key as *const PQSignatureSchemeSecretKeyInner);
-    key.inner.get_activation_interval().into()
+    key.inner.activation_slots().into()
 }
 
 #[no_mangle]
@@ -541,22 +526,17 @@ pub unsafe extern "C" fn pq_get_prepared_interval(
     }
 
     let key = &*(key as *const PQSignatureSchemeSecretKeyInner);
-    key.inner.get_prepared_interval().into()
+    key.inner.activation_slots().into()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn pq_advance_preparation(key: *mut PQSignatureSchemeSecretKey) {
-    if key.is_null() {
-        return;
-    }
-
-    let key = &mut *(key as *mut PQSignatureSchemeSecretKeyInner);
-    key.inner.advance_preparation();
+    let _ = key;
 }
 
 #[no_mangle]
 pub extern "C" fn pq_get_lifetime() -> u64 {
-    LeanSigScheme::LIFETIME
+    1u64 << 32
 }
 
 #[no_mangle]
@@ -580,18 +560,21 @@ pub unsafe extern "C" fn pq_key_gen(
         return PQSigningError::InvalidPointer;
     }
 
-    let Some(end_epoch) = activation_epoch.checked_add(num_active_epochs) else {
-        return PQSigningError::InvalidEpoch;
+    let activation_epoch = match u64::try_from(activation_epoch) {
+        Ok(epoch) => epoch,
+        Err(_) => return PQSigningError::InvalidEpoch,
     };
-    if end_epoch > LeanSigScheme::LIFETIME as usize {
-        return PQSigningError::InvalidEpoch;
-    }
+    let num_active_epochs = match u64::try_from(num_active_epochs) {
+        Ok(count) => count,
+        Err(_) => return PQSigningError::InvalidEpoch,
+    };
 
     let mut rng = rand::rng();
     let (pk, sk) = match catch_unwind(AssertUnwindSafe(|| {
-        LeanSigScheme::key_gen(&mut rng, activation_epoch, num_active_epochs)
+        xmss_key_gen(&mut rng, activation_epoch, num_active_epochs)
     })) {
-        Ok(keys) => keys,
+        Ok(Ok(keys)) => keys,
+        Ok(Err(_)) => return PQSigningError::InvalidEpoch,
         Err(_) => return PQSigningError::UnknownError,
     };
 
@@ -629,19 +612,18 @@ pub unsafe extern "C" fn pq_sign(
     };
     let sk = &*(sk as *const PQSignatureSchemeSecretKeyInner);
 
-    if !sk.inner.get_activation_interval().contains(&epoch)
-        || !sk.inner.get_prepared_interval().contains(&epoch)
-    {
+    if !sk.inner.activation_slots().contains(&epoch32) {
         return PQSigningError::InvalidEpoch;
     }
 
     let signature = match catch_unwind(AssertUnwindSafe(|| {
-        LeanSigScheme::sign(&sk.inner, epoch32, &message_array)
+        xmss_sign(&sk.inner, epoch32, &message_array)
     })) {
         Ok(Ok(signature)) => signature,
-        Ok(Err(SigningError::EncodingAttemptsExceeded { .. })) => {
+        Ok(Err(XmssSignatureError::EncodingAttemptsExceeded)) => {
             return PQSigningError::EncodingAttemptsExceeded;
         }
+        Ok(Err(XmssSignatureError::SlotOutOfRange)) => return PQSigningError::InvalidEpoch,
         Err(_) => return PQSigningError::UnknownError,
     };
 
@@ -677,7 +659,7 @@ pub unsafe extern "C" fn pq_verify(
     let pk = &*(pk as *const PQSignatureSchemePublicKeyInner);
     let signature = &*(signature as *const PQSignatureInner);
 
-    if LeanSigScheme::verify(&pk.inner, epoch32, &message_array, &signature.inner) {
+    if xmss_verify(&pk.inner, epoch32, &message_array, &signature.inner).is_ok() {
         1
     } else {
         0
@@ -727,7 +709,7 @@ pub unsafe extern "C" fn pq_verify_ssz(
         Err(_) => return -6,
     };
 
-    if LeanSigScheme::verify(&public_key, epoch32, &message_array, &signature) {
+    if xmss_verify(&public_key, epoch32, &message_array, &signature).is_ok() {
         1
     } else {
         0
@@ -760,7 +742,11 @@ pub unsafe extern "C" fn pq_secret_key_serialize(
     }
 
     let sk = &*(sk as *const PQSignatureSchemeSecretKeyInner);
-    write_bytes_to_buffer(&sk.inner.as_ssz_bytes(), buffer, buffer_len, written_len)
+    let bytes = match postcard::to_allocvec(&sk.inner) {
+        Ok(bytes) => bytes,
+        Err(_) => return PQSigningError::UnknownError,
+    };
+    write_bytes_to_buffer(&bytes, buffer, buffer_len, written_len)
 }
 
 #[no_mangle]
@@ -774,7 +760,7 @@ pub unsafe extern "C" fn pq_secret_key_deserialize(
     }
 
     let buffer_slice = slice::from_raw_parts(buffer, buffer_len);
-    let secret_key = match SecretKeyType::from_ssz_bytes(buffer_slice) {
+    let secret_key = match postcard::from_bytes::<SecretKeyType>(buffer_slice) {
         Ok(secret_key) => secret_key,
         Err(_) => return PQSigningError::UnknownError,
     };
@@ -955,22 +941,14 @@ pub unsafe extern "C" fn pq_signature_from_json(
 #[no_mangle]
 pub extern "C" fn pq_xmss_aggregation_setup_prover() {
     clear_last_error();
-    if catch_unwind(AssertUnwindSafe(|| {
-        // Lantern is long-running: the leanVM arena rewinds between phases but keeps
-        // touched pages resident, so recursive aggregation phases can exhaust RSS.
-        backend::parallel::init();
-        init_aggregation_bytecode();
-        precompute_dft_twiddles::<KoalaBear>(1 << 24);
-    }))
-    .is_err()
-    {
+    if catch_unwind(AssertUnwindSafe(setup_prover)).is_err() {
         set_last_error("leanvm-xmss: prover setup failed");
     }
 }
 
 #[no_mangle]
 pub extern "C" fn pq_xmss_aggregation_setup_verifier() {
-    let _ = catch_unwind(AssertUnwindSafe(init_aggregation_bytecode));
+    let _ = catch_unwind(AssertUnwindSafe(setup_verifier));
 }
 
 unsafe fn aggregate_raw_signatures(
@@ -1013,7 +991,7 @@ unsafe fn aggregate_raw_signatures(
     };
     let mut raw_xmss = Vec::with_capacity(count);
     for (pubkey, signature) in pubkeys.into_iter().zip(signatures.into_iter()) {
-        if verify_inputs && !LeanSigScheme::verify(&pubkey, epoch32, &message_array, &signature) {
+        if verify_inputs && xmss_verify(&pubkey, epoch32, &message_array, &signature).is_err() {
             return PQSigningError::UnknownError;
         }
         raw_xmss.push((pubkey, signature));
@@ -1024,7 +1002,7 @@ unsafe fn aggregate_raw_signatures(
             let children: [TypeOneMultiSignature; 0] = [];
             aggregate_type_1(&children, raw_xmss, message_array, epoch32, log_inv_rate)
         },
-        |aggregated| aggregated.compress_without_pubkeys(),
+        |aggregated| aggregated.to_bytes_without_pubkeys(),
     ) {
         Ok(Ok(aggregated_bytes)) => aggregated_bytes,
         Ok(Err(err)) => return aggregation_error("aggregate_type_1", err),
@@ -1180,14 +1158,14 @@ pub unsafe extern "C" fn pq_verify_aggregated_signatures(
         Err(_) => return -4,
     };
     let agg_bytes = slice::from_raw_parts(agg_bytes, agg_len);
-    let aggregated = match TypeOneMultiSignature::decompress_without_pubkeys(agg_bytes, pubkeys) {
+    let aggregated = match TypeOneMultiSignature::from_bytes_without_pubkeys(agg_bytes, pubkeys) {
         Some(aggregated) => aggregated,
         None => return -5,
     };
-    if aggregated.info.without_pubkeys.message != message_array {
+    if aggregated.info.core.message != message_array {
         return 0;
     }
-    if aggregated.info.without_pubkeys.slot != epoch32 {
+    if aggregated.info.core.slot != epoch32 {
         return 0;
     }
 
@@ -1221,7 +1199,7 @@ pub unsafe extern "C" fn pq_merge_many_type_1(
 
     let type2_bytes = match run_proving_phase_then(
         || merge_many_type_1(type1_entries, log_inv_rate),
-        |type2| type2.compress_without_pubkeys(),
+        |type2| type2.to_bytes_without_pubkeys(),
     ) {
         Ok(Ok(type2_bytes)) => type2_bytes,
         Ok(Err(err)) => return aggregation_error("merge_many_type_1", err),
@@ -1257,7 +1235,7 @@ pub unsafe extern "C" fn pq_verify_type_2_with_messages(
     };
     let sig_bytes = slice::from_raw_parts(type2_bytes, type2_len);
     let type2 =
-        match TypeTwoMultiSignature::decompress_without_pubkeys(sig_bytes, pks_per_component) {
+        match TypeTwoMultiSignature::from_bytes_without_pubkeys(sig_bytes, pks_per_component) {
             Some(type2) => type2,
             None => return -5,
         };
@@ -1265,7 +1243,7 @@ pub unsafe extern "C" fn pq_verify_type_2_with_messages(
         return -6;
     }
     for (info, (message, epoch)) in type2.info.iter().zip(expected.iter()) {
-        if info.without_pubkeys.message != *message || info.without_pubkeys.slot != *epoch {
+        if info.core.message != *message || info.core.slot != *epoch {
             return 0;
         }
     }
@@ -1309,17 +1287,24 @@ pub unsafe extern "C" fn pq_split_type_2_by_message(
     };
     let sig_bytes = slice::from_raw_parts(type2_bytes, type2_len);
     let type2 =
-        match TypeTwoMultiSignature::decompress_without_pubkeys(sig_bytes, pks_per_component) {
+        match TypeTwoMultiSignature::from_bytes_without_pubkeys(sig_bytes, pks_per_component) {
             Some(type2) => type2,
             None => return PQSigningError::UnknownError,
         };
 
+    let Some(message_index) = type2
+        .info
+        .iter()
+        .position(|info| info.core.message == message_array)
+    else {
+        return PQSigningError::UnknownError;
+    };
     let type1_bytes = match run_proving_phase_then(
-        || split_type_2_by_msg(type2, message_array, log_inv_rate),
-        |type1| type1.compress_without_pubkeys(),
+        || split_multi_message_aggregate(type2, message_index, log_inv_rate),
+        |type1| type1.to_bytes_without_pubkeys(),
     ) {
         Ok(Ok(type1_bytes)) => type1_bytes,
-        Ok(Err(err)) => return aggregation_error("split_type_2_by_msg", err),
+        Ok(Err(err)) => return aggregation_error("split_multi_message_aggregate", err),
         Err(_) => return PQSigningError::UnknownError,
     };
 
@@ -1332,19 +1317,16 @@ mod tests {
     use std::ptr;
 
     #[test]
-    fn test_exported_devnet4_sizes() {
-        assert_eq!(PUBLIC_KEY_SIZE, 52);
-        #[cfg(feature = "test-config")]
-        assert_eq!(SIGNATURE_SIZE, 424);
-        #[cfg(not(feature = "test-config"))]
-        assert_eq!(SIGNATURE_SIZE, 2536);
+    fn test_exported_main_sizes() {
+        assert_eq!(PUBLIC_KEY_SIZE, 32);
+        assert_eq!(SIGNATURE_SIZE, 1208);
         assert_eq!(pq_get_public_key_size(), PUBLIC_KEY_SIZE);
         assert_eq!(pq_get_signature_size(), SIGNATURE_SIZE);
     }
 
     #[test]
-    fn test_normalize_signature_bytes_accepts_legacy_zero_padding() {
-        let mut padded = vec![0u8; LEGACY_SIGNATURE_SIZE];
+    fn test_normalize_signature_bytes_accepts_zero_padding() {
+        let mut padded = vec![0u8; SIGNATURE_SIZE + 16];
         padded[..SIGNATURE_SIZE].fill(0xAB);
         assert_eq!(
             normalize_signature_bytes(&padded).unwrap(),
@@ -1381,7 +1363,7 @@ mod tests {
 
     #[test]
     #[ignore = "production-parameter XMSS key generation is expensive in debug builds"]
-    fn test_signature_size_matches_devnet4_encoding() {
+    fn test_signature_size_matches_main_encoding() {
         unsafe {
             let mut pk: *mut PQSignatureSchemePublicKey = ptr::null_mut();
             let mut sk: *mut PQSignatureSchemeSecretKey = ptr::null_mut();
@@ -1418,7 +1400,7 @@ mod tests {
 
     #[test]
     #[ignore = "production-parameter XMSS key generation is expensive in debug builds"]
-    fn test_signature_deserialize_accepts_legacy_zero_padding() {
+    fn test_signature_deserialize_accepts_zero_padding() {
         unsafe {
             let mut pk: *mut PQSignatureSchemePublicKey = ptr::null_mut();
             let mut sk: *mut PQSignatureSchemeSecretKey = ptr::null_mut();
@@ -1434,7 +1416,7 @@ mod tests {
                 PQSigningError::Success
             );
 
-            let mut serialized = vec![0u8; LEGACY_SIGNATURE_SIZE];
+            let mut serialized = vec![0u8; SIGNATURE_SIZE + 16];
             let mut written = 0usize;
             assert_eq!(
                 pq_signature_serialize(

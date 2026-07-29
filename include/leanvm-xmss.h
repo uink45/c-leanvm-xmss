@@ -3,7 +3,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define PUBLIC_KEY_SIZE 52
+#define PUBLIC_KEY_SIZE 32
+
+#define SIGNATURE_SIZE 1208
 
 typedef enum PQSigningError {
   Success = 0,
