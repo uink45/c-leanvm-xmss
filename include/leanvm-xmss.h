@@ -146,6 +146,8 @@ enum PQSigningError pq_signature_from_json(const uint8_t *json,
 
 void pq_xmss_aggregation_setup_prover(void);
 
+void pq_xmss_aggregation_setup_prover_without_arena(void);
+
 void pq_xmss_aggregation_setup_verifier(void);
 
 enum PQSigningError pq_aggregate_signatures(const struct PQSignatureSchemePublicKey *const *pubkeys,

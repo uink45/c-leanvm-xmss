@@ -40,7 +40,8 @@ main's postcard encoding without public keys.
 ## Notes
 
 - Message length must be exactly 32 bytes (SSZ hash tree root).
-- Use `pq_xmss_aggregation_setup_prover` / `pq_xmss_aggregation_setup_verifier`
-  once at startup to avoid first-call latency.
+- Use `pq_xmss_aggregation_setup_prover_without_arena` for bounded memory, or
+  `pq_xmss_aggregation_setup_prover` for faster arena-backed proving.
+- Use `pq_xmss_aggregation_setup_verifier` once at startup to avoid first-call latency.
 - `pq_aggregate_signatures_recursive` accepts child proofs plus raw XMSS signatures so
   callers can build recursive proofs without flattening them first.

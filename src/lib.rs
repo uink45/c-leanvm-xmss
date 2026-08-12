@@ -7,8 +7,8 @@ use std::sync::Mutex;
 
 use lean_multisig::{
     aggregate_single_message_signatures as aggregate_type_1,
-    merge_single_message_aggregates as merge_many_type_1, setup_prover, setup_verifier,
-    split_multi_message_aggregate, verify_multi_message_aggregate as verify_type_2,
+    merge_single_message_aggregates as merge_many_type_1, setup_prover, setup_prover_without_arena,
+    setup_verifier, split_multi_message_aggregate, verify_multi_message_aggregate as verify_type_2,
     verify_single_message_aggregate as verify_type_1, xmss_key_gen, xmss_sign, xmss_verify,
     MultiMessageAggregateSignature as TypeTwoMultiSignature,
     SingleMessageAggregateSignature as TypeOneMultiSignature, XmssPublicKey, XmssSecretKey,
@@ -942,6 +942,14 @@ pub unsafe extern "C" fn pq_signature_from_json(
 pub extern "C" fn pq_xmss_aggregation_setup_prover() {
     clear_last_error();
     if catch_unwind(AssertUnwindSafe(setup_prover)).is_err() {
+        set_last_error("leanvm-xmss: prover setup failed");
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn pq_xmss_aggregation_setup_prover_without_arena() {
+    clear_last_error();
+    if catch_unwind(AssertUnwindSafe(setup_prover_without_arena)).is_err() {
         set_last_error("leanvm-xmss: prover setup failed");
     }
 }

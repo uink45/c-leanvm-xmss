@@ -13,7 +13,7 @@ jemalloc = ["dep:tikv-jemallocator"]
 test-config = []
 
 [dependencies]
-lean-multisig = { git = "https://github.com/leanEthereum/leanVM", rev = "380da82c330eac2841252a655a86ea48ec173bb6" }
+lean-multisig = { git = "https://github.com/leanEthereum/leanVM", rev = "a5909d18647de6aed38640c098d9177fab2bf36a" }
 postcard = { version = "1.1", features = ["alloc"] }
 rand = "0.10"
 serde = { version = "1.0", features = ["derive"] }
