@@ -1,8 +1,13 @@
+#[cfg(not(feature = "jemalloc"))]
+use std::alloc::System;
+use std::alloc::{GlobalAlloc, Layout};
 use std::cell::RefCell;
 use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::ptr;
 use std::slice;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 
 use lean_multisig::{
@@ -16,9 +21,83 @@ use lean_multisig::{
 };
 use ssz::{Decode, Encode};
 
+static WIPING_DEALLOCATIONS: AtomicUsize = AtomicUsize::new(0);
+#[cfg(test)]
+static WIPED_ALLOCATION_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+struct WipingAllocator<A>(A);
+
+unsafe impl<A: GlobalAlloc> GlobalAlloc for WipingAllocator<A> {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        unsafe { self.0.alloc(layout) }
+    }
+
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        unsafe { self.0.alloc_zeroed(layout) }
+    }
+
+    unsafe fn dealloc(&self, allocation: *mut u8, layout: Layout) {
+        if WIPING_DEALLOCATIONS.load(Ordering::Relaxed) > 0 {
+            unsafe { secure_zero_allocation(allocation, layout.size()) };
+            #[cfg(test)]
+            WIPED_ALLOCATION_COUNT.fetch_add(1, Ordering::Relaxed);
+        }
+        unsafe { self.0.dealloc(allocation, layout) };
+    }
+
+    unsafe fn realloc(&self, allocation: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        if WIPING_DEALLOCATIONS.load(Ordering::Relaxed) == 0 {
+            return unsafe { self.0.realloc(allocation, layout, new_size) };
+        }
+
+        let Ok(new_layout) = Layout::from_size_align(new_size, layout.align()) else {
+            return ptr::null_mut();
+        };
+        let new_allocation = unsafe { self.0.alloc(new_layout) };
+        if new_allocation.is_null() {
+            return ptr::null_mut();
+        }
+        unsafe {
+            ptr::copy_nonoverlapping(allocation, new_allocation, layout.size().min(new_size));
+            secure_zero_allocation(allocation, layout.size());
+            self.0.dealloc(allocation, layout);
+        }
+        new_allocation
+    }
+}
+
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
-static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+static ALLOC: WipingAllocator<tikv_jemallocator::Jemalloc> =
+    WipingAllocator(tikv_jemallocator::Jemalloc);
+
+#[cfg(not(feature = "jemalloc"))]
+#[global_allocator]
+static ALLOC: WipingAllocator<System> = WipingAllocator(System);
+
+unsafe fn secure_zero_allocation(allocation: *mut u8, size: usize) {
+    for offset in 0..size {
+        unsafe { allocation.add(offset).write_volatile(0) };
+    }
+    std::sync::atomic::compiler_fence(Ordering::SeqCst);
+}
+
+struct WipeDeallocationGuard;
+
+impl WipeDeallocationGuard {
+    fn new() -> Self {
+        // The secret type has private nested allocations. Wipe each allocation
+        // while its owner runs the normal Rust destructor.
+        WIPING_DEALLOCATIONS.fetch_add(1, Ordering::Relaxed);
+        Self
+    }
+}
+
+impl Drop for WipeDeallocationGuard {
+    fn drop(&mut self) {
+        WIPING_DEALLOCATIONS.fetch_sub(1, Ordering::Relaxed);
+    }
+}
 
 pub const PUBLIC_KEY_SIZE: usize = 32;
 pub const SIGNATURE_SIZE: usize = 1208;
@@ -472,6 +551,7 @@ unsafe fn aggregate_signatures_impl(
 #[no_mangle]
 pub unsafe extern "C" fn pq_secret_key_free(key: *mut PQSignatureSchemeSecretKey) {
     if !key.is_null() {
+        let _wipe_guard = WipeDeallocationGuard::new();
         let _ = Box::from_raw(key as *mut PQSignatureSchemeSecretKeyInner);
     }
 }
@@ -1322,7 +1402,17 @@ pub unsafe extern "C" fn pq_split_type_2_by_message(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ptr;
+
+    #[test]
+    fn test_secret_drop_wipes_nested_allocations() {
+        let before = WIPED_ALLOCATION_COUNT.load(Ordering::Relaxed);
+        {
+            let _wipe_guard = WipeDeallocationGuard::new();
+            drop(Box::new(vec![0xabu8; 64]));
+        }
+        let after = WIPED_ALLOCATION_COUNT.load(Ordering::Relaxed);
+        assert!(after >= before + 2);
+    }
 
     #[test]
     fn test_exported_main_sizes() {
